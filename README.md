@@ -43,7 +43,7 @@ z_score.py: Z-Score detection for the hybrid model.
 # Getting Started
 
 # 1. Clone the repository:
-git clone https://github.com/varaprasad5238/ANAMOLY-DETECTION.git
+git clone https://github.com/varaprasad5238/ANOMALY-DETECTION.git
 # 2. Install required dependencies:
 pip install -r requirements.txt
 # 3. Run individual models or the hybrid model using:
