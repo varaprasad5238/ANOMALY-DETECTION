@@ -59,3 +59,69 @@ Isolation Forest
 Holt-Winters
 Hybrid Model
 Detailed results are available in the report, with metrics such as Precision, Recall, F1 Score, and ROC AUC.
+
+# Paginator — Multi-API Aggregation with ML-based Sorting
+
+`paginator.py` solves the problem of paginating a dynamically ranked dataset that is aggregated from multiple independent external APIs and sorted by an ML model (stored as a pickle file).
+
+## The Problem
+
+Applying `offset`/`limit` per-API **before** global sorting produces incorrect pages because:
+
+* Each external API returns a different number of records with its own ordering.
+* Offset cannot be applied per-API — each API has its own independent dataset.
+* Final ranking is determined by an ML/pickle model **after** all records are merged.
+* Fetching only `offset + limit` records may miss top-ranked records that haven't been fetched yet.
+
+## The Solution
+
+Treat all API responses as one virtual dataset:
+
+1. Fetch **all** records from every external API.
+2. Merge into a single list.
+3. Apply global ML-model scoring and sort.
+4. Slice with `offset` / `limit`.
+
+## Usage
+
+```python
+from paginator import AggregatedPaginator
+
+def fetch_industry_a():
+    # call external API A → list of dicts
+    return requests.get("https://api-a.example.com/data").json()
+
+def fetch_industry_b():
+    # call external API B → list of dicts
+    return requests.get("https://api-b.example.com/data").json()
+
+paginator = AggregatedPaginator(
+    api_fetchers=[fetch_industry_a, fetch_industry_b],
+    model_path="ranking_model.pkl",   # scikit-learn model with predict/predict_proba
+)
+
+# Fetch all data, score with model, sort descending
+paginator.load_and_sort(feature_keys=["revenue", "growth_rate"])
+
+# Page 1
+page1 = paginator.paginate(offset=0, limit=10)
+# {"total": 38, "offset": 0, "limit": 10, "data": [...]}
+
+# Page 2
+page2 = paginator.paginate(offset=10, limit=10)
+```
+
+Without a pickle model, pass a `sort_key` lambda instead:
+
+```python
+paginator = AggregatedPaginator(api_fetchers=[fetch_industry_a, fetch_industry_b])
+paginator.load_and_sort(sort_key=lambda r: r["anomaly_score"], ascending=False)
+page = paginator.paginate(offset=0, limit=20)
+```
+
+## Running the tests
+
+```bash
+pip install pytest numpy
+python -m pytest test_paginator.py -v
+```
